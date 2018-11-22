@@ -153,20 +153,20 @@ public class TokenManagementDAOImpl extends AbstractOAuthDAO implements TokenMan
                     validationDataDO.setGrantType(resultSet.getString(10));
                     String subjectIdentifier = resultSet.getString(11);
                     AuthenticatedUser user = new AuthenticatedUser();
+                    user.setAuthenticatedSubjectIdentifier(subjectIdentifier);
                     user.setUserName(userName);
                     user.setUserStoreDomain(userDomain);
                     user.setTenantDomain(tenantDomain);
-                    ServiceProvider serviceProvider;
-                    try {
-                        serviceProvider = OAuth2ServiceComponentHolder.getApplicationMgtService().
-                                getServiceProviderByClientId(consumerKey, OAuthConstants.Scope.OAUTH2, tenantDomain);
-                    } catch (IdentityApplicationManagementException e) {
-                        throw new IdentityOAuth2Exception("Error occurred while retrieving OAuth2 " +
-                                "application data for " + "client id " + consumerKey, e);
-                    }
-                    user.setAuthenticatedSubjectIdentifier(subjectIdentifier, serviceProvider);
+                    //ServiceProvider serviceProvider;
+//                    try {
+//                        serviceProvider = OAuth2ServiceComponentHolder.getApplicationMgtService().
+//                                getServiceProviderByClientId(consumerKey, OAuthConstants.Scope.OAUTH2, tenantDomain);
+//                    } catch (IdentityApplicationManagementException e) {
+//                        throw new IdentityOAuth2Exception("Error occurred while retrieving OAuth2 " +
+//                                "application data for " + "client id " + consumerKey, e);
+//                    }
+                    //user.setAuthenticatedSubjectIdentifier(subjectIdentifier, serviceProvider);
                     validationDataDO.setAuthorizedUser(user);
-
                 } else {
                     scopes.add(resultSet.getString(5));
                 }
@@ -185,6 +185,19 @@ public class TokenManagementDAOImpl extends AbstractOAuthDAO implements TokenMan
             throw new IdentityOAuth2Exception("Error when validating a refresh token", e);
         } finally {
             IdentityDatabaseUtil.closeAllConnections(connection, resultSet, prepStmt);
+        }
+
+        ServiceProvider serviceProvider;
+        AuthenticatedUser authenticatedUser = validationDataDO.getAuthorizedUser();
+        try {
+            serviceProvider = OAuth2ServiceComponentHolder.getApplicationMgtService().getServiceProviderByClientId(
+                    consumerKey, OAuthConstants.Scope.OAUTH2, authenticatedUser.getTenantDomain());
+            authenticatedUser.setAuthenticatedSubjectIdentifier(
+                    authenticatedUser.getAuthenticatedSubjectIdentifier(), serviceProvider);
+            validationDataDO.setAuthorizedUser(authenticatedUser);
+        } catch (IdentityApplicationManagementException e) {
+            throw new IdentityOAuth2Exception("Error occurred while retrieving OAuth2 " +
+                    "application data for " + "client id " + consumerKey, e);
         }
 
         return validationDataDO;
